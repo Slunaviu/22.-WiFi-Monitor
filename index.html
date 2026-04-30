@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Network Monitor</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+    :root {
+      --bg: #08090b;
+      --s1: #0f1115;
+      --border: #1f2430;
+      --border2: #2a3040;
+      --text: #cdd6e8;
+      --muted: #485066;
+      --dim: #2a3040;
+      --wifi-a: #00d4ff;
+      --wifi-b: #0088cc;
+      --eth-a: #00e09e;
+      --eth-b: #00a070;
+      --yellow: #f5c542;
+      --red: #ff4e6a;
+      --purple: #a78bfa;
+      --accent: var(--wifi-a);
+      --accent2: var(--wifi-b);
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+      --r: 8px;
+    }
+
+    .eth-mode {
+      --accent: var(--eth-a);
+      --accent2: var(--eth-b);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+    }
+
+    /* titlebar */
+    #titlebar {
+      -webkit-app-region: drag;
+      height: 38px;
+      background: var(--s1);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-app-region: no-drag;
+      transition: opacity .15s;
+    }
+
+    .dot:hover {
+      opacity: .75;
+    }
+
+    .dot-r {
+      background: #ff5f57
+    }
+
+    .dot-y {
+      background: #ffbd2e
+    }
+
+    .dot-g {
+      background: #28c840
+    }
+
+    #tb-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 6px;
+      letter-spacing: .1em;
+    }
+
+    #tb-spacer {
+      flex: 1;
+    }
+
+    #tb-type {
+      -webkit-app-region: no-drag;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--accent);
+      border: 1px solid var(--border2);
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: .08em;
+      transition: color .3s;
+    }
+
+    #tb-refresh {
+      -webkit-app-region: no-drag;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all .15s;
+      letter-spacing: .05em;
+    }
+
+    #tb-refresh:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #tb-refresh.loading {
+      opacity: .4;
+      pointer-events: none;
+    }
+
+    /* main */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #main::-webkit-scrollbar {
+      width: 3px
+    }
+
+    #main::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 2px
+    }
+
+    /* hero */
+    #hero {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #hero::after {
+      content: '';
+      position: absolute;
+      left: -60px;
+      top: -60px;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(0, 212, 255, .07) 0%, transparent 70%);
+      pointer-events: none;
+      transition: background .5s;
+    }
+
+    .eth-mode #hero::after {
+      background: radial-gradient(circle, rgba(0, 224, 158, .07) 0%, transparent 70%);
+    }
+
+    #hero-icon {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+    }
+
+    #hero-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    #hero-name {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    #hero-sub {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    #hero-grow {
+      flex: 1;
+    }
+
+    #hero-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 224, 158, .08);
+      border: 1px solid rgba(0, 224, 158, .2);
+      color: var(--eth-a);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    #hero-badge.wifi-badge {
+      background: rgba(0, 212, 255, .08);
+      border-color: rgba(0, 212, 255, .2);
+      color: var(--wifi-a);
+    }
+
+    .pulse {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1)
+      }
+
+      50% {
+        opacity: .3;
+        transform: scale(1.5)
+      }
+    }
+
+    /* grids */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    /* card */
+    .card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+    }
+
+    .card-title {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title::before {
+      content: '';
+      display: block;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, .03);
+    }
+
+    .row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .row-k {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .row-v {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text);
+      text-align: right;
+      max-width: 60%;
+      word-break: break-all;
+    }
+
+    .row-v.hi {
+      color: var(--accent)
+    }
+
+    .row-v.hi2 {
+      color: var(--yellow)
+    }
+
+    .row-v.hi3 {
+      color: var(--purple)
+    }
+
+    /* tiles */
+    .tile {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .tile-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .tile-val {
+      font-family: var(--mono);
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+
+    .tile-unit {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .tile-val.c2 {
+      color: var(--accent2)
+    }
+
+    .tile-val.cy {
+      color: var(--yellow)
+    }
+
+    .tile-val.cp {
+      color: var(--purple)
+    }
+
+    /* signal bars */
+    .bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      height: 18px;
+    }
+
+    .bar {
+      width: 6px;
+      border-radius: 2px 2px 0 0;
+      background: var(--dim);
+      transition: background .4s;
+    }
+
+    .bar.on {
+      background: var(--accent);
+    }
+
+    .bar:nth-child(1) {
+      height: 20%
+    }
+
+    .bar:nth-child(2) {
+      height: 40%
+    }
+
+    .bar:nth-child(3) {
+      height: 60%
+    }
+
+    .bar:nth-child(4) {
+      height: 80%
+    }
+
+    .bar:nth-child(5) {
+      height: 100%
+    }
+
+    /* footer */
+    #footer {
+      height: 26px;
+      flex-shrink: 0;
+      background: var(--s1);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 20px;
+    }
+
+    .fi {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+      letter-spacing: .06em;
+    }
+
+    .fi span {
+      color: var(--text);
+    }
+
+    /* loading */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 100;
+      transition: opacity .3s;
+    }
+
+    #loading.gone {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ring {
+      width: 36px;
+      height: 36px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--wifi-a);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .load-txt {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* sections */
+    #wifi-section {
+      display: none;
+    }
+
+    #eth-section {
+      display: none;
+    }
+
+    /* debug modal */
+    #debug-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .88);
+      z-index: 200;
+      padding: 20px;
+      overflow: auto;
+    }
+
+    #debug-inner {
+      background: #0f1115;
+      border: 1px solid #2a3040;
+      border-radius: 8px;
+      padding: 20px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    #debug-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    #debug-close {
+      background: none;
+      border: 1px solid #2a3040;
+      color: #cdd6e8;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #debug-pre {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #cdd6e8;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.6;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="loading">
+    <div class="ring"></div>
+    <div class="load-txt">определение типа подключения…</div>
+  </div>
+
+  <div id="titlebar">
+    <div class="dot dot-r" onclick="nw.App.quit()"></div>
+    <div class="dot dot-y" onclick="nw.Window.get().minimize()"></div>
+    <div class="dot dot-g" onclick="nw.Window.get().toggleFullscreen()"></div>
+    <span id="tb-title">// network monitor</span>
+    <div id="tb-spacer"></div>
+    <span id="tb-type">—</span>
+    <button
+      style="-webkit-app-region:no-drag;background:none;border:1px solid #2a3040;color:#f5c542;font-family:'IBM Plex Mono',monospace;font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;margin-right:4px"
+      onclick="openDebug()">⚙ debug</button>
+    <button id="tb-refresh" onclick="refresh()">↺ refresh</button>
+  </div>
+
+  <div id="main">
+    <div id="hero">
+      <div id="hero-icon">
+        <svg id="icon-wifi" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+          <path id="ww1" d="M4 18c9.9-9.9 26.1-9.9 36 0" stroke="#2a3040" stroke-width="2.5" stroke-linecap="round" />
+          <path id="ww2" d="M9 23c7.2-7.2 18.8-7.2 26 0" stroke="#2a3040" stroke-width="2.5" stroke-linecap="round" />
+          <path id="ww3" d="M14 28c4.4-4.4 11.6-4.4 16 0" stroke="#2a3040" stroke-width="2.5" stroke-linecap="round" />
+          <circle id="ww4" cx="22" cy="34" r="2.5" fill="#2a3040" />
+        </svg>
+        <svg id="icon-eth" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+          <rect x="8" y="6" width="28" height="18" rx="3" stroke="#00e09e" stroke-width="2" />
+          <line x1="13" y1="10" x2="13" y2="20" stroke="#00e09e" stroke-width="2" stroke-linecap="round" />
+          <line x1="18" y1="10" x2="18" y2="20" stroke="#00e09e" stroke-width="2" stroke-linecap="round" />
+          <line x1="23" y1="10" x2="23" y2="20" stroke="#00e09e" stroke-width="2" stroke-linecap="round" />
+          <line x1="28" y1="10" x2="28" y2="20" stroke="#00e09e" stroke-width="2" stroke-linecap="round" />
+          <line x1="22" y1="24" x2="22" y2="32" stroke="#00e09e" stroke-width="2" />
+          <line x1="14" y1="32" x2="30" y2="32" stroke="#00e09e" stroke-width="2" />
+          <line x1="14" y1="32" x2="14" y2="38" stroke="#00e09e" stroke-width="2" />
+          <line x1="22" y1="32" x2="22" y2="38" stroke="#00e09e" stroke-width="2" />
+          <line x1="30" y1="32" x2="30" y2="38" stroke="#00e09e" stroke-width="2" />
+        </svg>
+      </div>
+      <div>
+        <div id="hero-name">—</div>
+        <div id="hero-sub">—</div>
+      </div>
+      <div id="hero-grow"></div>
+      <div id="hero-badge">
+        <div class="pulse"></div><span id="badge-txt">connected</span>
+      </div>
+    </div>
+
+    <!-- WiFi section -->
+    <div id="wifi-section">
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-title">сеть</div>
+          <div class="row">
+            <div class="row-k">Защита</div>
+            <div class="row-v hi" id="w-auth">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Шифрование</div>
+            <div class="row-v" id="w-cipher">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Частота</div>
+            <div class="row-v hi" id="w-freq">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Канал</div>
+            <div class="row-v" id="w-ch">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Стандарт</div>
+            <div class="row-v" id="w-band">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">соединение</div>
+          <div class="row">
+            <div class="row-k">Сигнал</div>
+            <div class="row-v" style="display:flex;align-items:center;gap:8px">
+              <div class="bars">
+                <div class="bar" id="b1"></div>
+                <div class="bar" id="b2"></div>
+                <div class="bar" id="b3"></div>
+                <div class="bar" id="b4"></div>
+                <div class="bar" id="b5"></div>
+              </div>
+              <span id="w-signal">—</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-k">Локальный IP</div>
+            <div class="row-v hi" id="w-ip">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Шлюз</div>
+            <div class="row-v" id="w-gw">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Адаптер</div>
+            <div class="row-v" id="w-adapter">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Хост</div>
+            <div class="row-v" id="w-host">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-4">
+        <div class="tile">
+          <div class="tile-label">↓ приём</div>
+          <div class="tile-val" id="w-rx">—</div>
+          <div class="tile-unit">Mbps</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">↑ передача</div>
+          <div class="tile-val c2" id="w-tx">—</div>
+          <div class="tile-unit">Mbps</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">⏱ пинг</div>
+          <div class="tile-val cy" id="w-ping">—</div>
+          <div class="tile-unit">ms · 1.1.1.1</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">⊞ устройств</div>
+          <div class="tile-val cp" id="w-dev">—</div>
+          <div class="tile-unit">в ARP-таблице</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ethernet section -->
+    <div id="eth-section">
+      <div class="grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-title">адаптер</div>
+          <div class="row">
+            <div class="row-k">MAC-адрес</div>
+            <div class="row-v hi" id="e-mac">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Скорость</div>
+            <div class="row-v hi" id="e-speed">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">DHCP</div>
+            <div class="row-v" id="e-dhcp">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">DHCP-сервер</div>
+            <div class="row-v" id="e-dhcpsrv">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Аренда до</div>
+            <div class="row-v" id="e-lease">—</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">соединение</div>
+          <div class="row">
+            <div class="row-k">Локальный IP</div>
+            <div class="row-v hi" id="e-ip">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Шлюз</div>
+            <div class="row-v" id="e-gw">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">DNS</div>
+            <div class="row-v" id="e-dns">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Хост</div>
+            <div class="row-v" id="e-host">—</div>
+          </div>
+          <div class="row">
+            <div class="row-k">Платформа</div>
+            <div class="row-v" id="e-platform">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-4">
+        <div class="tile">
+          <div class="tile-label">↓ получено</div>
+          <div class="tile-val" id="e-recv">—</div>
+          <div class="tile-unit">всего</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">↑ отправлено</div>
+          <div class="tile-val c2" id="e-sent">—</div>
+          <div class="tile-unit">всего</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">⏱ пинг</div>
+          <div class="tile-val cy" id="e-ping">—</div>
+          <div class="tile-unit">ms · 1.1.1.1</div>
+        </div>
+        <div class="tile">
+          <div class="tile-label">⊞ устройств</div>
+          <div class="tile-val cp" id="e-dev">—</div>
+          <div class="tile-unit">в ARP-таблице</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div class="fi">ip <span id="f-ip">—</span></div>
+    <div class="fi">хост <span id="f-host">—</span></div>
+    <div class="fi">обновлено <span id="f-time">—</span></div>
+    <div class="fi">авто <span>30s</span></div>
+  </div>
+
+  <!-- Debug modal -->
+  <div id="debug-modal">
+    <div id="debug-inner">
+      <div id="debug-head">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#f5c542">⚙ диагностика</span>
+        <button id="debug-close" onclick="document.getElementById('debug-modal').style.display='none'">✕
+          закрыть</button>
+      </div>
+      <pre id="debug-pre">…</pre>
+    </div>
+  </div>
+
+  <script>
+    const net = require('./wifi.js');
+    const { execSync } = require('child_process');
+
+    // ── helpers ──────────────────────────────────────────────────────────────────
+
+    function s(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = (val !== undefined && val !== null && val !== '') ? val : '—';
+    }
+
+    function signalToBars(raw) {
+      if (!raw || raw === '—') return 0;
+      const pct = String(raw).match(/(\d+)%/);
+      if (pct) return Math.ceil(parseInt(pct[1]) / 20);
+      const dbm = String(raw).match(/-(\d+)/);
+      if (dbm) {
+        const v = -parseInt(dbm[1]);
+        if (v >= -50) return 5; if (v >= -60) return 4;
+        if (v >= -70) return 3; if (v >= -80) return 2; return 1;
+      }
+      return 0;
+    }
+
+    function updateBars(raw) {
+      const n = signalToBars(raw);
+      for (let i = 1; i <= 5; i++)
+        document.getElementById('b' + i).classList.toggle('on', i <= n);
+    }
+
+    function animateWifiIcon(raw) {
+      const n = signalToBars(raw);
+      ['ww4', 'ww3', 'ww2', 'ww1'].forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const c = i < n ? 'var(--wifi-a)' : 'var(--dim)';
+        el.setAttribute('stroke', c);
+        el.setAttribute('fill', c);
+      });
+    }
+
+    // ── debug ─────────────────────────────────────────────────────────────────────
+
+    function openDebug() {
+      document.getElementById('debug-modal').style.display = 'block';
+      document.getElementById('debug-pre').textContent = 'выполняю команды…';
+      setTimeout(() => {
+        let out = '';
+        function cmd(label, command) {
+          out += '\n' + '─'.repeat(55) + '\n▶ ' + label + '\n' + '─'.repeat(55) + '\n';
+          try {
+            const buf = execSync('chcp 65001 >nul 2>&1 && ' + command, { encoding: 'buffer', timeout: 8000, shell: 'cmd.exe' });
+            out += buf.toString('utf8');
+          } catch (e) { out += 'ОШИБКА: ' + e.message; }
+        }
+        cmd('ping -n 4 1.1.1.1', 'ping -n 4 1.1.1.1');
+        cmd('netstat -e', 'netstat -e');
+        cmd('arp -a', 'arp -a');
+        document.getElementById('debug-pre').textContent = out;
+      }, 50);
+    }
+
+    // ── refresh ───────────────────────────────────────────────────────────────────
+
+    async function refresh() {
+      const btn = document.getElementById('tb-refresh');
+      btn.classList.add('loading');
+      btn.textContent = '…';
+
+      try {
+        const d = await net.collectAll();
+        const isWifi = d.type === 'wifi';
+
+        document.body.classList.toggle('eth-mode', !isWifi);
+        document.getElementById('wifi-section').style.display = isWifi ? 'block' : 'none';
+        document.getElementById('eth-section').style.display = !isWifi ? 'block' : 'none';
+        document.getElementById('icon-wifi').style.display = isWifi ? 'block' : 'none';
+        document.getElementById('icon-eth').style.display = !isWifi ? 'block' : 'none';
+
+        const badge = document.getElementById('hero-badge');
+        badge.className = isWifi ? 'wifi-badge' : '';
+        s('badge-txt', isWifi ? 'WiFi' : 'Ethernet');
+        s('tb-type', isWifi ? 'WiFi' : 'Ethernet');
+        s('hero-name', isWifi ? d.ssid : d.adapterName);
+        s('hero-sub', isWifi ? d.bssid : d.mac);
+
+        if (isWifi) {
+          animateWifiIcon(d.signal);
+          updateBars(d.signal);
+          s('w-auth', d.auth);
+          s('w-cipher', d.cipher);
+          s('w-freq', d.frequency);
+          s('w-ch', d.channel);
+          s('w-band', d.band);
+          s('w-signal', d.signal);
+          s('w-ip', d.localIp);
+          s('w-gw', d.gateway);
+          s('w-adapter', d.adapter);
+          s('w-host', d.hostname);
+          s('w-rx', d.rxRate);
+          s('w-tx', d.txRate);
+          s('w-ping', d.latency);
+          s('w-dev', d.deviceCount);
+        } else {
+          s('e-mac', d.mac);
+          s('e-speed', d.linkSpeed);
+          s('e-dhcp', d.dhcpEnabled);
+          s('e-dhcpsrv', d.dhcpServer);
+          s('e-lease', d.leaseExp);
+          s('e-ip', d.localIp);
+          s('e-gw', d.gateway);
+          s('e-dns', d.dns);
+          s('e-host', d.hostname);
+          s('e-platform', d.platform);
+          s('e-recv', d.bytesRecv);
+          s('e-sent', d.bytesSent);
+          s('e-ping', d.latency);
+          s('e-dev', d.deviceCount);
+        }
+
+        s('f-ip', d.localIp);
+        s('f-host', d.hostname);
+        s('f-time', new Date().toLocaleTimeString('ru-RU'));
+      } catch (e) {
+        console.error(e);
+      }
+
+      btn.classList.remove('loading');
+      btn.textContent = '↺ refresh';
+    }
+
+    // ── init ──────────────────────────────────────────────────────────────────────
+
+    window.onload = async () => {
+      await refresh();
+      document.getElementById('loading').classList.add('gone');
+      setInterval(refresh, 30000);
+    };
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "wifi-monitor",
+  "version": "1.0.0",
+  "main": "index.html",
+  "window": {
+    "title": "WiFi Monitor",
+    "width": 900,
+    "height": 660,
+    "min_width": 800,
+    "min_height": 600,
+    "frame": false,
+    "transparent": false,
+    "resizable": true
+  },
+  "nodejs": true,
+  "chromium-args": "--allow-file-access-from-files"
+}
